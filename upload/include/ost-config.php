@@ -30,10 +30,10 @@ if(OSTINSTALLED!=TRUE){
 }
 
 # Encrypt/Decrypt secret key - randomly generated during installation.
-define('SECRET_SALT','ODzs72I75jbc67sxu9LTc0SncV06SxOK');
+define('SECRET_SALT','imAbhszYRAwwE2VEg=5JLo6YcTuIkfhO');
 
 #Default admin email. Used only on db connection issues and related alerts.
-define('ADMIN_EMAIL','Romflex1@gmail.com');
+define('ADMIN_EMAIL','jeremiahogbomo@gmail.com');
 
 # Database Options
 # ---------------------------------------------------

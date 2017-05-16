@@ -1,31 +1,25 @@
 <?php
 /*********************************************************************
     class.dispatcher.php
-
     Dispatcher that will read files with URL lists in them and attempt to
     match the URL requested to a function that should be invoked to handle
     the request.
-
     Jared Hancock
     Copyright (c)  2006-2013 osTicket
     http://www.osticket.com
-
     Released under the GNU General Public License WITHOUT ANY WARRANTY.
     See LICENSE.TXT for details.
-
     vim: expandtab sw=4 ts=4 sts=4:
 **********************************************************************/
-
 /**
  * URL resolver and dispatcher. It's meant to be quite lightweight, so the
  * functions aren't separated
  */
 class Dispatcher {
-    function __construct($file=false) {
+    function Dispatcher($file=false) {
         $this->urls = array();
         $this->file = $file;
     }
-
     function resolve($url, $args=null) {
         if ($this->file) { $this->lazy_load(); }
         # Support HTTP method emulation with the _method GET argument
@@ -59,7 +53,6 @@ class Dispatcher {
         foreach ($dispatcher->urls as $url) { $this->append($url); }
         /* allow inlining / chaining */ return $this;
     }
-
     /* static */ function include_urls($file, $absolute=false, $lazy=true) {
         if (!$absolute) {
             # Fetch the working path of the caller
@@ -81,7 +74,8 @@ class Dispatcher {
 }
 
 class UrlMatcher {
-    function __construct($regex, $func, $args=false, $method=false) {
+
+    function UrlMatcher($regex, $func, $args=false, $method=false) {
         # Add the slashes for the Perl syntax
         $this->regex = "@" . $regex . "@";
         $this->func = $func;
@@ -89,22 +83,20 @@ class UrlMatcher {
         $this->prefix = false;
         $this->method = $method;
     }
-
+    
     function setPrefix($prefix) { $this->prefix = $prefix; }
-
+    
     function matches($url) {
         if ($this->method && $_SERVER['REQUEST_METHOD'] != $this->method) {
             return false;
         }
         return preg_match($this->regex, $url, $this->matches) == 1;
     }
-
+    
     function dispatch($url, $prev_args=null) {
-
         # Remove named values from the match array
         $f = array_filter(array_keys($this->matches), 'is_numeric');
         $this->matches = array_intersect_key($this->matches, array_flip($f));
-
         if (@get_class($this->func) == "Dispatcher") {
             # Trim the leading match off the $url and call the
             # sub-dispatcher. This will be the case for lines in the URL
@@ -119,11 +111,9 @@ class UrlMatcher {
                 array_merge(($prev_args) ? $prev_args : array(),
                     array_slice($this->matches, 1)));
         }
-
         # Drop the first item of the matches array (which is the whole
         # matched url). Then merge in any initial arguments.
         unset($this->matches[0]);
-
         # Prepend received arguments (from a parent Dispatcher). This is
         # different from the static args, which are postpended
         if (is_array($prev_args))
@@ -138,12 +128,11 @@ class UrlMatcher {
             # then call the method which is the second item
             $func = array(new $class, $func);
         }
-
         if (!is_callable($func))
             Http::response(500, __('Dispatcher compile error. Function not callable'));
-
         return call_user_func_array($func, $args);
     }
+    
     /**
      * For the $prefix recieved by the constuctor, prepend it to the
      * received $class, if any, then make an import if necessary. Lastly,
@@ -157,7 +146,6 @@ class UrlMatcher {
             return array(false, $this->func);
         if ($this->prefix)
             $class = $this->prefix . $class;
-
         if (strpos($class, ":")) {
             list($file, $class) = explode(":", $class, 2);
             include $file;
@@ -184,6 +172,10 @@ function url($regex, $func, $args=false, $method=false) {
 
 function url_post($regex, $func, $args=false) {
     return url($regex, $func, $args, "POST");
+}
+
+function url_put($regex, $func, $args=false) {
+    return url($regex, $func, $args, "PUT");
 }
 
 function url_get($regex, $func, $args=false) {

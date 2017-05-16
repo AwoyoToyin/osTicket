@@ -15,8 +15,8 @@ $debug="0";
 // You must configure the url and key in the array below.
 
 $config = array(
-        'url'=>'http://your.domain.tld/api/tickets.json',  // URL to site.tld/api/tickets.json
-		'key'=>'PUTyourAPIkeyHERE'  // API Key goes here
+        'url'=>'http://romflex.local/api/tickets.json',  // URL to site.tld/api/tickets.json
+		'key'=>'5CB1339F8E018D49793B7B71DFDC3D52'  // API Key goes here
 );
 # NOTE: some people have reported having to use "http://your.domain.tld/api/http.php/tickets.json" instead.
 
@@ -31,7 +31,7 @@ if(IsNullOrEmptyString($config['key']) || ($config['key'] === 'PUTyourAPIkeyHERE
   echo "Once you have your key edit this file ".__FILE__." and add the key at line 19.</p>";
   die();
 }
-		
+
 # Fill in the data for the new ticket, this will likely come from $_POST.
 # NOTE: your variable names in osT are case sensiTive. 
 # So when adding custom lists or fields make sure you use the same case
@@ -62,7 +62,7 @@ if($debug=='1') {
 $data['attachments'][] =
 array('file.txt' =>
         'data:text/plain;base64;'
-            .base64_encode(file_get_contents('/file.txt')));  // replace ./file.txt with /path/to/your/test/filename.txt
+            .base64_encode(file_get_contents('test.php')));  // replace ./file.txt with /path/to/your/test/filename.txt
  
 
 #pre-checks
@@ -86,10 +86,18 @@ $result=curl_exec($ch);
 $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
+echo('<br />');
+print_r($result);
+echo('<br />');
+print_r($code);
+echo('<br />');
+// exit;
+
 if ($code != 201)
     die('Unable to create ticket: '.$result);
 
 $ticket_id = (int) $result;
+print_r('New Ticket at: '.$ticket_id);
 
 # Continue onward here if necessary. $ticket_id has the ID number of the
 # newly-created ticket

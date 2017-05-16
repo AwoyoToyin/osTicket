@@ -19,7 +19,7 @@ class API {
 
     var $ht;
 
-    function __construct($id) {
+    function API($id) {
         $this->id = 0;
         $this->load($id);
     }
@@ -149,9 +149,8 @@ class API {
             if(db_query($sql) && ($id=db_insert_id()))
                 return $id;
 
-            $errors['err']=sprintf('%s %s',
-                sprintf(__('Unable to add %s.'), __('this API key')),
-                __('Correct any errors below and try again.'));
+            $errors['err']=sprintf(__('Unable to add %s. Correct error(s) below and try again.'),
+                __('this API key'));
         }
 
         return false;
@@ -189,6 +188,42 @@ class ApiController {
         return $this->apikey;
     }
 
+    function getContentType() {
+        return strtolower($_SERVER['CONTENT-TYPE']);
+       }
+
+    function contentTypeToFormat($content_type) {
+
+        # Require a valid content-type (json, xml or rfc822) for POST and PUT
+        switch($content_type) {
+			case 'application/json':
+				return "json";
+			case 'application/xml':
+				return "xml";
+			case 'message/rfc822':
+				return "email";
+			default:
+                switch(strtolower($_SERVER['REQUEST_METHOD'])) {
+                    case 'post':
+                    case 'put':
+                        $this->exerr(415, __('Unsupported data format'));
+                    case 'get':
+                    case 'delete':
+                        return "";
+                }
+			}
+    }
+
+    /**
+     * Identifies request data format using content-type and passes it on to
+     * getRequest
+     */
+    function getRequestAuto() {
+        $content_type = $this->getContentType();
+        $format = $this->contentTypeToFormat($content_type);
+        return $this->getRequest($format);
+    }
+
     /**
      * Retrieves the body of the API request and converts it to a common
      * hashtable. For JSON formats, this is mostly a noop, the conversion
@@ -197,7 +232,7 @@ class ApiController {
     function getRequest($format) {
         global $ost;
 
-        $input = osTicket::is_cli()?'php://stdin':'php://input';
+        $input = $ost->is_cli()?'php://stdin':'php://input';
 
         if (!($stream = @fopen($input, 'r')))
             $this->exerr(400, __("Unable to read request body"));
@@ -238,15 +273,16 @@ class ApiController {
      * Structure to validate the request against -- must be overridden to be
      * useful
      */
-    function getRequestStructure($format, $data=null) { return array(); }
+    function getRequestStructure($format, $data = null) {
+        return [];
+    }
     /**
      * Simple validation that makes sure the keys of a parsed request are
      * expected. It is assumed that the functions actually implementing the
      * API will further validate the contents of the request
      */
-    function validateRequestStructure($data, $structure, $prefix="", $strict=true) {
+    function validateRequestStructure($data, $structure, $prefix = "", $strict = true) {
         global $ost;
-
         foreach ($data as $key=>$info) {
             if (is_array($structure) && (is_array($info) || $info instanceof ArrayAccess)) {
                 $search = (isset($structure[$key]) && !is_numeric($key)) ? $key : "*";
@@ -254,15 +290,21 @@ class ApiController {
                     $this->validateRequestStructure($info, $structure[$search], "$prefix$key/", $strict);
                     continue;
                 }
+                continue; // I added this too
             } elseif (in_array($key, $structure)) {
                 continue;
+            } else { // I added this here @jogboms 
+                continue;
             }
-            if ($strict)
+
+            if ($strict) {
                 return $this->exerr(400, sprintf(__("%s: Unexpected data received in API request"), "$prefix$key"));
-            else
+            }
+            else {
                 $ost->logWarning(__('API Unexpected Data'),
                     sprintf(__("%s: Unexpected data received in API request"), "$prefix$key"),
                     false);
+            }
         }
 
         return true;
@@ -273,9 +315,12 @@ class ApiController {
      *
      */
     function validate(&$data, $format, $strict=true) {
+        $structure = [];
+        // For some reason, this generates a silent error
+        // $structure = $this->getRequestStructure($format, $data);
         return $this->validateRequestStructure(
                 $data,
-                $this->getRequestStructure($format, $data),
+                $structure,
                 "",
                 $strict);
     }
@@ -308,8 +353,8 @@ class ApiController {
     }
 
     //Default response method - can be overwritten in subclasses.
-    function response($code, $resp) {
-        Http::response($code, $resp);
+    function response($code, $resp, $contentType="text/plain") {
+        Http::response($code, $resp, $contentType);
         exit();
     }
 }
@@ -359,7 +404,7 @@ class ApiXmlDataParser extends XmlDataParser {
                     $value = new TextThreadEntryBody($value['body']);
 
             } else if ($key == "attachments") {
-                if(isset($value['file']) && !isset($value['file'][':text']))
+                if(!isset($value['file'][':text']))
                     $value = $value['file'];
 
                 if($value && is_array($value)) {
@@ -382,11 +427,14 @@ class ApiXmlDataParser extends XmlDataParser {
 include_once "class.json.php";
 class ApiJsonDataParser extends JsonDataParser {
     function parse($stream) {
+        // var_dump(parent::parse($stream));
         return $this->fixup(parent::parse($stream));
     }
     function fixup($current) {
         if (!is_array($current))
             return $current;
+
+        // var_dump($current, 'hey');
         foreach ($current as $key=>&$value) {
             if ($key == "phone") {
                 $value = strtoupper($value);
@@ -398,10 +446,12 @@ class ApiJsonDataParser extends JsonDataParser {
                 // Allow message specified in RFC 2397 format
                 $data = Format::parseRfc2397($value, 'utf-8');
 
-                if (isset($data['type']) && $data['type'] == 'text/html')
+                if (isset($data['type']) && $data['type'] == 'text/html') {
                     $value = new HtmlThreadEntryBody($data['data']);
-                else
+                }
+                else {
                     $value = new TextThreadEntryBody($data['data']);
+                }
 
             } else if ($key == "attachments") {
                 foreach ($value as &$info) {
