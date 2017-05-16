@@ -308,14 +308,18 @@ class TicketApiController extends ApiController {
         # get total number of tickets
         $found_rows = db_num_rows($res);
         $tickets = array();
+        $config = require_once('../config.php');
+
         while($row = db_fetch_array($res)) {
-            $row['href'] = '/api/tickets/'.$row['number'];
+            $row['url'] = '/api/tickets/'.$row['number'];
+            $row['href'] = $config['domain'].'/scp/tickets.php?id='.$row['id'];
             $tickets[] = $row;
         }
         $limit = $offset + $found_rows;
         header("Content-Range: items ${offset}-${limit}/${found_rows}");
         $result_code = 200;
-        
+        // var_dump($config);
+        // exit;
         $this->response($result_code, json_encode($tickets),
              $contentType="application/json");
     }
